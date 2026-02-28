@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "SNOMED CT": {
+      "command": "uv",
+      "args": [
+        "tool",
+        "run",
+        "snomed-mcp"
+      ],
+      "env": {
+        "BIOPORTAL_API_KEY": "YOUR_API_KEY_HERE"
+      }
+    }
+  }
+}
