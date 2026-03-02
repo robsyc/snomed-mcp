@@ -84,7 +84,10 @@ This server wraps the [BioPortal REST API](https://data.bioontology.org/document
 uv sync --group dev
 
 # Lint
-uv run ruff check src/
+uv run ruff check src/ tests/
+
+# Tests
+uv run pytest tests/ -v
 
 # MCP Inspector (web UI for testing tools)
 BIOPORTAL_API_KEY=your-key uv run fastmcp dev inspector src/snomed_mcp/server.py:mcp
