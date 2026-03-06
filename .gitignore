@@ -1,19 +1,24 @@
 # Python
 __pycache__/
-*.py[codz]
+*.py[cod]
 *.egg-info/
+
+# Virtual environments
+.venv/
+venv/
+ENV
+
+# IDE
+.idea/
+.vscode/
+
+# Distribution
 dist/
 build/
 
-# Environments
-.venv/
-venv/
+# uv
+.uv/
+uv.lock
 
-# Tools
-.ruff_cache/
-.pytest_cache/
-.mypy_cache/
-
-# IDE
-.cursor/
-.claude/
+# Environment variables
+.env
