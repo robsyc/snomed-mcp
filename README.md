@@ -4,11 +4,11 @@ A [Model Context Protocol](https://modelcontextprotocol.io/) server for querying
 
 ## Available Tools
 
-| Tool | Description |
+| Tool | Arguments | Description |
 |------|-------------|
-| `search` | Search SNOMED CT concepts by text query. Optional `domain` filter limits results to a SNOMED branch (e.g., `procedure`). |
-| `get_concept` | Get full concept details: label, definition, synonyms, parents, and clinical relationships. |
-| `get_hierarchy` | Navigate the SNOMED CT hierarchy (parents, children, ancestors, descendants). |
+| `search` | `query` `limit` `domain` | Search SNOMED CT concepts by text query. Optional `domain` filter limits results to a SNOMED branch (e.g., `procedure`). |
+| `get_concept` | `concept_id` `include_detail` | Get full concept details: label, definition, synonyms, parents, and clinical relationships. |
+| `get_hierarchy` | `concept_id` `relation` `limit` | Navigate the SNOMED CT hierarchy (parents, children, ancestors, descendants). |
 
 ## Quick Start
 

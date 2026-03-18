@@ -7,7 +7,7 @@ via the NCBO BioPortal REST API.
 import asyncio
 import json
 import urllib.parse
-from typing import Annotated, Literal
+from typing import Annotated
 
 import httpx
 from fastmcp import FastMCP
@@ -15,7 +15,7 @@ from fastmcp import FastMCP
 from snomed_mcp.utils import (
     BIOPORTAL_BASE,
     BIOPORTAL_TIMEOUT,
-    SNOMED_HIERARCHIES,
+    SNOMED_DOMAINS,
     SNOMED_IRI_PREFIX,
     SNOMED_ONTOLOGY,
     collect_relationship_targets,
@@ -39,28 +39,6 @@ mcp = FastMCP(
 )
 
 _client: httpx.AsyncClient | None = None
-SearchDomain = Literal[
-    "clinical_finding",
-    "procedure",
-    "observable_entity",
-    "body_structure",
-    "organism",
-    "substance",
-    "pharmaceutical_product",
-    "specimen",
-    "special_concept",
-    "physical_object",
-    "physical_force",
-    "event",
-    "environment",
-    "social_context",
-    "situation",
-    "staging_and_scales",
-    "qualifier_value",
-    "record_artifact",
-    "snomed_model_component",
-]
-
 
 def _get_client() -> httpx.AsyncClient:
     global _client
@@ -138,38 +116,51 @@ async def _resolve_semantic_type_labels(uris: list[str]) -> dict[str, str]:
 )
 async def search(
     query: Annotated[str, "Search text (e.g. 'heart failure', 'diabetes mellitus')"],
-    page_size: Annotated[int, "Max results to return (1-50)"] = 10,
-    page: Annotated[int, "Page number"] = 1,
-    include_obsolete: Annotated[bool, "Include obsolete concepts"] = False,
+    limit: Annotated[int, "Max results to return (1-50)"] = 10,
+    page: Annotated[int, "Page number (1-based)"] = 1,
     domain: Annotated[
-        SearchDomain | None,
+        str,
         (
             "Optional SNOMED branch filter. "
-            "Use one of: clinical_finding, procedure, observable_entity, body_structure, "
-            "organism, substance, pharmaceutical_product, specimen, special_concept, "
-            "physical_object, physical_force, event, environment, social_context, "
-            "situation, staging_and_scales, qualifier_value, record_artifact, "
-            "snomed_model_component."
+            "Use one of: "
+            "\n- clinical_finding: diseases, signs, symptoms",
+            "\n- procedure: surgeries, therapies, diagnostic tests",
+            "\n- observable_entity: measurements, scores, lab values, vital signs",
+            "\n- body_structure: anatomical structures, organs, body regions",
+            "\n- organism: bacteria, viruses, organisms",
+            "\n- substance: chemicals, dietary substances, biological substances",
+            "\n- pharmaceutical_product: medications, vaccines, clinical drugs, biologic products",
+            "\n- specimen: blood samples, tissue specimens",
+            "\n- special_concept: navigational and grouping concepts for browsing",
+            "\n- physical_object: devices, implants, instruments",
+            "\n- physical_force: radiation, thermal, mechanical forces",
+            "\n- event: accidents, exposures, falls, natural phenomena",
+            "\n- environment: environments, geographical locations, healthcare settings",
+            "\n- social_context: occupations, religions, ethnic groups, family roles, economic status",
+            "\n- situation: findings or procedures with explicit temporal or subject context",
+            "\n- staging_and_scales: tumor staging, grading systems, assessment scales",
+            "\n- qualifier_value: severity, laterality, chronicity, other qualifiers",
+            "\n- record_artifact: clinical documents, reports, orders, consent forms",
+            "\n- snomed_model_component: metadata and model components",
         ),
-    ] = None,
+    ] = "all",
 ) -> str:
     """Search SNOMED CT concepts. Returns matching concept IDs, labels, and definitions."""
+    valid = SNOMED_DOMAINS.keys()
+    if domain != "all" and domain not in valid:
+        return format_error(f"Invalid domain '{domain}'. Use one of: {', '.join(valid)}")
     try:
         params: dict[str, str | int] = {
             "q": query,
-            "pagesize": min(page_size, 50),
+            "pagesize": min(limit, 50),
             "page": page,
-            "also_search_obsolete": str(include_obsolete).lower(),
+            "also_search_obsolete": 'false',
             "display_context": "false",
             "display_links": "false",
         }
-        if domain:
-            branch = SNOMED_HIERARCHIES.get(str(domain).lower().strip())
-            if not branch:
-                valid = ", ".join(sorted(SNOMED_HIERARCHIES))
-                return format_error(f"Invalid domain '{domain}'. Use one of: {valid}")
+        if domain != "all":
+            params["subtree_root_id"] = f"{SNOMED_IRI_PREFIX}{SNOMED_DOMAINS[domain]}"
             params["ontology"] = SNOMED_ONTOLOGY
-            params["subtree_root_id"] = f"{SNOMED_IRI_PREFIX}{branch[0]}"
         else:
             params["ontologies"] = SNOMED_ONTOLOGY
 
@@ -249,7 +240,7 @@ async def get_hierarchy(
         str,
         "One of: 'parents', 'children', 'ancestors', 'descendants'",
     ] = "children",
-    page_size: Annotated[int, "Max results"] = 25,
+    limit: Annotated[int, "Max results to return (1-100)"] = 25,
 ) -> str:
     """Get hierarchically related SNOMED CT concepts (parents, children, ancestors, or descendants)."""
     valid = ("parents", "children", "ancestors", "descendants")
@@ -261,7 +252,7 @@ async def get_hierarchy(
             f"{BIOPORTAL_BASE}/ontologies/{SNOMED_ONTOLOGY}/classes/"
             f"{encode_class_uri(concept_id)}/{relation}",
             params={
-                "pagesize": page_size,
+                "pagesize": min(limit, 100),
                 "display_context": "false",
                 "display_links": "false",
             },
