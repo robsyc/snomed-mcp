@@ -14,6 +14,33 @@ BIOPORTAL_ONTOLOGY_PREFIX = "http://purl.bioontology.org/ontology/"
 SNOMED_ONTOLOGY = "SNOMEDCT"
 SNOMED_IRI_PREFIX = "http://purl.bioontology.org/ontology/SNOMEDCT/"
 BIOPORTAL_TIMEOUT = 30.0
+SNOMED_HIERARCHIES: dict[str, tuple[str, str]] = {
+    "clinical_finding": ("404684003", "diseases, signs, symptoms"),
+    "procedure": ("71388002", "surgeries, therapies, diagnostic tests"),
+    "observable_entity": ("363787002", "measurements, scores, lab values, vital signs"),
+    "body_structure": ("123037004", "anatomical structures, organs, body regions"),
+    "organism": ("410607006", "bacteria, viruses, organisms"),
+    "substance": ("105590001", "chemicals, dietary substances, biological substances"),
+    "pharmaceutical_product": (
+        "373873005",
+        "medications, vaccines, clinical drugs, biologic products",
+    ),
+    "specimen": ("123038009", "blood samples, tissue specimens"),
+    "special_concept": ("370115009", "navigational and grouping concepts for browsing"),
+    "physical_object": ("260787004", "devices, implants, instruments"),
+    "physical_force": ("78621006", "radiation, thermal, mechanical forces"),
+    "event": ("272379006", "accidents, exposures, falls, natural phenomena"),
+    "environment": ("308916002", "environments, geographical locations, healthcare settings"),
+    "social_context": (
+        "48176007",
+        "occupations, religions, ethnic groups, family roles, economic status",
+    ),
+    "situation": ("243796009", "findings or procedures with explicit temporal or subject context"),
+    "staging_and_scales": ("254291000", "tumor staging, grading systems, assessment scales"),
+    "qualifier_value": ("362981000", "severity, laterality, chronicity, other qualifiers"),
+    "record_artifact": ("419891008", "clinical documents, reports, orders, consent forms"),
+    "snomed_model_component": ("900000000000441003", "metadata and model components"),
+}
 
 
 # ---------------------------------------------------------------------------

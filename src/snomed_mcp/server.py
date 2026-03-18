@@ -7,7 +7,7 @@ via the NCBO BioPortal REST API.
 import asyncio
 import json
 import urllib.parse
-from typing import Annotated
+from typing import Annotated, Literal
 
 import httpx
 from fastmcp import FastMCP
@@ -15,6 +15,8 @@ from fastmcp import FastMCP
 from snomed_mcp.utils import (
     BIOPORTAL_BASE,
     BIOPORTAL_TIMEOUT,
+    SNOMED_HIERARCHIES,
+    SNOMED_IRI_PREFIX,
     SNOMED_ONTOLOGY,
     collect_relationship_targets,
     collect_semantic_type_uris,
@@ -37,6 +39,27 @@ mcp = FastMCP(
 )
 
 _client: httpx.AsyncClient | None = None
+SearchDomain = Literal[
+    "clinical_finding",
+    "procedure",
+    "observable_entity",
+    "body_structure",
+    "organism",
+    "substance",
+    "pharmaceutical_product",
+    "specimen",
+    "special_concept",
+    "physical_object",
+    "physical_force",
+    "event",
+    "environment",
+    "social_context",
+    "situation",
+    "staging_and_scales",
+    "qualifier_value",
+    "record_artifact",
+    "snomed_model_component",
+]
 
 
 def _get_client() -> httpx.AsyncClient:
@@ -118,20 +141,41 @@ async def search(
     page_size: Annotated[int, "Max results to return (1-50)"] = 10,
     page: Annotated[int, "Page number"] = 1,
     include_obsolete: Annotated[bool, "Include obsolete concepts"] = False,
+    domain: Annotated[
+        SearchDomain | None,
+        (
+            "Optional SNOMED branch filter. "
+            "Use one of: clinical_finding, procedure, observable_entity, body_structure, "
+            "organism, substance, pharmaceutical_product, specimen, special_concept, "
+            "physical_object, physical_force, event, environment, social_context, "
+            "situation, staging_and_scales, qualifier_value, record_artifact, "
+            "snomed_model_component."
+        ),
+    ] = None,
 ) -> str:
     """Search SNOMED CT concepts. Returns matching concept IDs, labels, and definitions."""
     try:
+        params: dict[str, str | int] = {
+            "q": query,
+            "pagesize": min(page_size, 50),
+            "page": page,
+            "also_search_obsolete": str(include_obsolete).lower(),
+            "display_context": "false",
+            "display_links": "false",
+        }
+        if domain:
+            branch = SNOMED_HIERARCHIES.get(str(domain).lower().strip())
+            if not branch:
+                valid = ", ".join(sorted(SNOMED_HIERARCHIES))
+                return format_error(f"Invalid domain '{domain}'. Use one of: {valid}")
+            params["ontology"] = SNOMED_ONTOLOGY
+            params["subtree_root_id"] = f"{SNOMED_IRI_PREFIX}{branch[0]}"
+        else:
+            params["ontologies"] = SNOMED_ONTOLOGY
+
         resp = await _get_client().get(
             f"{BIOPORTAL_BASE}/search",
-            params={
-                "q": query,
-                "ontologies": SNOMED_ONTOLOGY,
-                "pagesize": min(page_size, 50),
-                "page": page,
-                "also_search_obsolete": str(include_obsolete).lower(),
-                "display_context": "false",
-                "display_links": "false",
-            },
+            params=params,
             headers=get_auth_headers(),
         )
         resp.raise_for_status()

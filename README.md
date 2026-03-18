@@ -6,7 +6,7 @@ A [Model Context Protocol](https://modelcontextprotocol.io/) server for querying
 
 | Tool | Description |
 |------|-------------|
-| `search` | Search SNOMED CT concepts by text query. Returns IDs, labels, and definitions. |
+| `search` | Search SNOMED CT concepts by text query. Optional `domain` filter limits results to a SNOMED branch (e.g., `procedure`). |
 | `get_concept` | Get full concept details: label, definition, synonyms, parents, and clinical relationships. |
 | `get_hierarchy` | Navigate the SNOMED CT hierarchy (parents, children, ancestors, descendants). |
 
@@ -64,6 +64,8 @@ Add to your `.cursor/mcp.json` or Claude Desktop config:
 ## Usage Examples
 
 > "Search for SNOMED CT concepts related to heart failure"
+
+> "Search for appendectomy in the `procedure` domain only"
 
 > "Get the full details for SNOMED concept 195967001"
 
