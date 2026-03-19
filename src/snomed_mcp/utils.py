@@ -14,6 +14,27 @@ BIOPORTAL_ONTOLOGY_PREFIX = "http://purl.bioontology.org/ontology/"
 SNOMED_ONTOLOGY = "SNOMEDCT"
 SNOMED_IRI_PREFIX = "http://purl.bioontology.org/ontology/SNOMEDCT/"
 BIOPORTAL_TIMEOUT = 30.0
+SNOMED_DOMAINS: dict[str, str] = {
+    "clinical_finding": "404684003",
+    "procedure": "71388002",
+    "observable_entity":      "363787002",
+    "body_structure":         "123037004",
+    "organism":               "410607006",
+    "substance":              "105590001",
+    "pharmaceutical_product": "373873005",
+    "specimen":               "123038009",
+    "special_concept":        "370115009",
+    "physical_object":        "260787004",
+    "physical_force":         "78621006",
+    "event":                  "272379006",
+    "environment":            "308916002",
+    "social_context":         "48176007",
+    "situation":              "243796009",
+    "staging_and_scales":     "254291000",
+    "qualifier_value":        "362981000",
+    "record_artifact":        "419891008",
+    "snomed_model_component": "900000000000441003",
+}
 
 
 # ---------------------------------------------------------------------------

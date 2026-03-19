@@ -35,7 +35,7 @@ class TestSearch:
         assert "asthma" in asthma["label"].lower()
 
     async def test_search_result_structure(self):
-        raw = await search("diabetes mellitus", page_size=3)
+        raw = await search("diabetes mellitus", limit=3)
         result = json.loads(raw)
         _skip_on_api_error(result)
         assert result["total"] > 0

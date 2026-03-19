@@ -10,11 +10,14 @@ import urllib.parse
 from typing import Annotated
 
 import httpx
+from aiolimiter import AsyncLimiter
 from fastmcp import FastMCP
 
 from snomed_mcp.utils import (
     BIOPORTAL_BASE,
     BIOPORTAL_TIMEOUT,
+    SNOMED_DOMAINS,
+    SNOMED_IRI_PREFIX,
     SNOMED_ONTOLOGY,
     collect_relationship_targets,
     collect_semantic_type_uris,
@@ -37,6 +40,13 @@ mcp = FastMCP(
 )
 
 _client: httpx.AsyncClient | None = None
+_rate_limiter: AsyncLimiter = AsyncLimiter(15, 1.0)  # 15 requests/second
+
+
+async def _rate_limited_get(url: str, **kwargs) -> httpx.Response:
+    """Make a rate-limited GET request to BioPortal."""
+    async with _rate_limiter:
+        return await _get_client().get(url, **kwargs)
 
 
 def _get_client() -> httpx.AsyncClient:
@@ -58,7 +68,7 @@ async def _resolve_labels(concept_ids: list[str]) -> dict[str, str]:
 
     async def _fetch_one(cid: str) -> tuple[str, str]:
         try:
-            resp = await _get_client().get(
+            resp = await _rate_limited_get(
                 f"{BIOPORTAL_BASE}/ontologies/{SNOMED_ONTOLOGY}/classes/"
                 f"{encode_class_uri(cid)}",
                 params={"display_context": "false", "display_links": "false"},
@@ -86,7 +96,7 @@ async def _resolve_semantic_type_labels(uris: list[str]) -> dict[str, str]:
         ontology, class_id = parsed
         try:
             encoded = urllib.parse.quote(uri, safe="")
-            resp = await _get_client().get(
+            resp = await _rate_limited_get(
                 f"{BIOPORTAL_BASE}/ontologies/{ontology}/classes/{encoded}",
                 params={"display_context": "false", "display_links": "false"},
                 headers=get_auth_headers(),
@@ -115,23 +125,53 @@ async def _resolve_semantic_type_labels(uris: list[str]) -> dict[str, str]:
 )
 async def search(
     query: Annotated[str, "Search text (e.g. 'heart failure', 'diabetes mellitus')"],
-    page_size: Annotated[int, "Max results to return (1-50)"] = 10,
-    page: Annotated[int, "Page number"] = 1,
-    include_obsolete: Annotated[bool, "Include obsolete concepts"] = False,
+    limit: Annotated[int, "Max results to return (1-50)"] = 10,
+    page: Annotated[int, "Page number (1-based)"] = 1,
+    domain: Annotated[str, "Optional SNOMED branch filter"] = "all"
 ) -> str:
-    """Search SNOMED CT concepts. Returns matching concept IDs, labels, and definitions."""
+    """Search SNOMED CT concepts. Returns matching concept IDs, labels, and definitions.
+    For domain filter, use one of:
+    - clinical_finding: diseases, signs, symptoms
+    - procedure: surgeries, therapies, diagnostic tests
+    - observable_entity: measurements, scores, lab values, vital signs
+    - body_structure: anatomical structures, organs, body regions
+    - organism: bacteria, viruses, organisms
+    - substance: chemicals, dietary substances, biological substances
+    - pharmaceutical_product: medications, vaccines, clinical drugs, biologic products
+    - specimen: blood samples, tissue specimens
+    - special_concept: navigational and grouping concepts for browsing
+    - physical_object: devices, implants, instruments
+    - physical_force: radiation, thermal, mechanical forces
+    - event: accidents, exposures, falls, natural phenomena
+    - environment: environments, geographical locations, healthcare settings
+    - social_context: occupations, religions, ethnic groups, family roles, economic status
+    - situation: findings or procedures with explicit temporal or subject context
+    - staging_and_scales: tumor staging, grading systems, assessment scales
+    - qualifier_value: severity, laterality, chronicity, other qualifiers
+    - record_artifact: clinical documents, reports, orders, consent forms
+    - snomed_model_component: metadata and model components
+    """
+    valid = SNOMED_DOMAINS.keys()
+    if domain != "all" and domain not in valid:
+        return format_error(f"Invalid domain '{domain}'. Use one of: {', '.join(valid)}")
     try:
-        resp = await _get_client().get(
+        params: dict[str, str | int] = {
+            "q": query,
+            "pagesize": min(limit, 50),
+            "page": page,
+            "also_search_obsolete": 'false',
+            "display_context": "false",
+            "display_links": "false",
+        }
+        if domain != "all":
+            params["subtree_root_id"] = f"{SNOMED_IRI_PREFIX}{SNOMED_DOMAINS[domain]}"
+            params["ontology"] = SNOMED_ONTOLOGY
+        else:
+            params["ontologies"] = SNOMED_ONTOLOGY
+
+        resp = await _rate_limited_get(
             f"{BIOPORTAL_BASE}/search",
-            params={
-                "q": query,
-                "ontologies": SNOMED_ONTOLOGY,
-                "pagesize": min(page_size, 50),
-                "page": page,
-                "also_search_obsolete": str(include_obsolete).lower(),
-                "display_context": "false",
-                "display_links": "false",
-            },
+            params=params,
             headers=get_auth_headers(),
         )
         resp.raise_for_status()
@@ -158,7 +198,7 @@ async def get_concept(
 ) -> str:
     """Get full details for a SNOMED CT concept: label, definition, synonyms, parents, and clinical relationships."""
     try:
-        resp = await _get_client().get(
+        resp = await _rate_limited_get(
             f"{BIOPORTAL_BASE}/ontologies/{SNOMED_ONTOLOGY}/classes/"
             f"{encode_class_uri(concept_id)}",
             params={
@@ -205,7 +245,7 @@ async def get_hierarchy(
         str,
         "One of: 'parents', 'children', 'ancestors', 'descendants'",
     ] = "children",
-    page_size: Annotated[int, "Max results"] = 25,
+    limit: Annotated[int, "Max results to return (1-100)"] = 25,
 ) -> str:
     """Get hierarchically related SNOMED CT concepts (parents, children, ancestors, or descendants)."""
     valid = ("parents", "children", "ancestors", "descendants")
@@ -213,11 +253,11 @@ async def get_hierarchy(
         return format_error(f"Invalid relation '{relation}'. Use one of: {', '.join(valid)}")
 
     try:
-        resp = await _get_client().get(
+        resp = await _rate_limited_get(
             f"{BIOPORTAL_BASE}/ontologies/{SNOMED_ONTOLOGY}/classes/"
             f"{encode_class_uri(concept_id)}/{relation}",
             params={
-                "pagesize": page_size,
+                "pagesize": min(limit, 100),
                 "display_context": "false",
                 "display_links": "false",
             },
