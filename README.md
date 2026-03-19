@@ -78,7 +78,7 @@ This server wraps the [BioPortal REST API](https://data.bioontology.org/document
 - **Auth**: API key passed via `Authorization: apikey token=...` header
 - **SNOMED CT ontology**: accessed as `SNOMEDCT` in BioPortal
 - **Concept URIs**: `http://purl.bioontology.org/ontology/SNOMEDCT/{concept_id}`
-- **Rate limits**: not publicly documented; the server uses a single `httpx` client with 30s timeout
+- **Rate limiting**: 15 requests/second (enforced client-side)
 
 ## Development
 
